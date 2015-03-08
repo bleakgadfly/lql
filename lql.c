@@ -1,3 +1,4 @@
+#include <stdlib.h>
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
@@ -10,16 +11,17 @@
 
 #define MAX_RATING_LENGTH 3 
 #define MAX_AGE_LENGTH 2
-#define WORKDIR ".lql"
+#define WORKDIR "/.lql"
 
 int 
 make_dir(char *dirname) 
 {
 	struct stat st = {0};
-	if(-1 == stat(dirname, &st)) 
+	if(-1 == stat(dirname, &st)) {
 		mkdir(dirname, 0700);
-	else 
+	} else {
 		return -1;
+	}
 	
 	return 0;
 }
@@ -46,15 +48,13 @@ init()
 {
 	struct passwd *pw = getpwuid(getuid());
 	const char *homedir = pw->pw_dir;
-	size_t homedir_len = strlen(homedir);
-	size_t workdir_len = homedir_len + strlen(WORKDIR);
-	char workdir[workdir_len];
+	size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
+	char *workdir = malloc(workdir_len + 1);
 	strcat(workdir, homedir);
-	strcat(workdir, "/");
 	strcat(workdir, WORKDIR);
+	strcat(workdir, "\0");
 
-	int made_dir = make_dir(workdir);
-	assert(made_dir == 0);
+	assert(make_dir(workdir) == 0);
 }
 
 int
