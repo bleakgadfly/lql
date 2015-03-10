@@ -19,7 +19,7 @@ typedef struct {
 	char distillery[CHAR_MAX];
 	signed int age;
 	double rating;
-} entity;
+} whisky;
 
 static int 
 make_dir(char *dirname) 
@@ -78,21 +78,20 @@ next_entry_num(const char *distdir)
 		}
 	}
 	
-	//free(dir);
 	return nextNum;
 }
 
 static void
-create_lq(entity *lq) 
+create_lq(whisky *lq) 
 {
 	FILE *f;
 	long next_num; 
-	char *workdir, *distdir, *fnum, *fname = NULL; 
-	size_t next_entry_len, distdir_len, br_len = strlen("/"); 
+	char *fname = NULL; 
+	size_t br_len = strlen("/"); 
 
-	workdir = get_workdir();
-	distdir_len = sizeof(workdir) + br_len  + sizeof(lq->distillery);
-	distdir = malloc(distdir_len + NULL_TERM_LEN);
+	char *workdir = get_workdir();
+	size_t distdir_len = sizeof(workdir) + br_len  + sizeof(lq->distillery);
+	char *distdir = malloc(distdir_len + NULL_TERM_LEN);
 
 	strcat(distdir, workdir);
 	strcat(distdir, "/");
@@ -113,7 +112,6 @@ create_lq(entity *lq)
 	memcpy(fname + strlen(distdir), "/", br_len);
 	memcpy(fname + strlen(distdir) + br_len, buf, strlen(buf) + NULL_TERM_LEN); 
 
-	printf("Opening %s\n", fname);
 	f = fopen(fname, "w");
 	if(NULL == f) {
 		printf("Error opening file %s\n", fname);
@@ -125,14 +123,14 @@ create_lq(entity *lq)
 	fprintf(f, "%f\n", lq->rating);
 
 	free(fname);
-	free(workdir);
+	free(workdir); // Remove this once workdir is modified in own function
 	free(distdir);
 }
 
 static void
 new_lq_from_interact() 
 {
-	entity lq;
+	whisky lq;
 
 	printf("Distillery: ");
 	scanf("%s", lq.distillery); // Replace spaces with underscore
@@ -151,7 +149,7 @@ new_lq_from_stdin()
 {
 }
 
-static int
+static void
 init()
 {
 	char *workdir = get_workdir();	
@@ -164,9 +162,7 @@ main(int argc, char **argv)
 {
 	init();
 
-	int opterr = 0;
 	int c;
-
 	while(-1 != (c = getopt(argc, argv, "n"))) {
 		switch(c) {
 			case 'n':
