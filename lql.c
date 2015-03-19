@@ -21,30 +21,30 @@ static char* get_workdir(void);
 static char* get_dist_path(char*, size_t);
 
 typedef struct {
-	char distillery[CHAR_MAX];
-	signed int age;
-	double rating;
+    char distillery[CHAR_MAX];
+    signed int age;
+    double rating;
 } whisky;
 
 static int 
 make_dir(char *dirname) 
 {
-	struct stat st = {0};
-	if(-1 == stat(dirname, &st)) 
-		mkdir(dirname, 0700);
-	
-	return 0;
+    struct stat st = {0};
+    if(-1 == stat(dirname, &st)) 
+        mkdir(dirname, 0700);
+    
+    return 0;
 }
 
 static int 
 numsort(const struct dirent **file1, const struct dirent **file2)
 {
-	const char *a = (*file1)->d_name;
-	const char *b = (*file2)->d_name;
-	char *ptr;
-	long num_a = strtol(a, &ptr, 10);
-	long num_b = strtol(b, &ptr, 10);
-	return num_a > num_b ? 1 : (num_a == num_b ? 0 : -1);
+    const char *a = (*file1)->d_name;
+    const char *b = (*file2)->d_name;
+    char *ptr;
+    long num_a = strtol(a, &ptr, 10);
+    long num_b = strtol(b, &ptr, 10);
+    return num_a > num_b ? 1 : (num_a == num_b ? 0 : -1);
 }
 
 static void
@@ -83,25 +83,25 @@ print_distilleries(void)
 static char* 
 get_workdir()
 {
-	struct passwd *pw = getpwuid(getuid());
-	const char *homedir = pw->pw_dir;
-	size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
-	char *workdir = malloc(workdir_len + NULL_TERM_LEN);
-	memcpy(workdir, homedir, strlen(homedir));
-	memcpy(workdir + strlen(homedir), WORKDIR, strlen(WORKDIR));
-	memcpy(workdir + strlen(homedir) + strlen(WORKDIR), "\0", 1);
+    struct passwd *pw = getpwuid(getuid());
+    const char *homedir = pw->pw_dir;
+    size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
+    char *workdir = malloc(workdir_len + NULL_TERM_LEN);
+    memcpy(workdir, homedir, strlen(homedir));
+    memcpy(workdir + strlen(homedir), WORKDIR, strlen(WORKDIR));
+    memcpy(workdir + strlen(homedir) + strlen(WORKDIR), "\0", 1);
 
-	return workdir;
+    return workdir;
 }
 
 static char*
 get_dist_path(char *dist_name, size_t dist_len) 
 {
-	size_t br_len = strlen("/"); 
+    size_t br_len = strlen("/"); 
 
-	char *workdir = get_workdir();
-	size_t distdir_len = strlen(workdir) + br_len  + dist_len;
-	char *dest = malloc(distdir_len + NULL_TERM_LEN);
+    char *workdir = get_workdir();
+    size_t distdir_len = strlen(workdir) + br_len  + dist_len;
+    char *dest = malloc(distdir_len + NULL_TERM_LEN);
 
     size_t offset = NULL;
     memcpy(dest, workdir, strlen(workdir));
@@ -116,78 +116,78 @@ get_dist_path(char *dist_name, size_t dist_len)
 static long
 next_entry_num(const char *distdir)
 {
-	long nextNum;
-	struct dirent **namelist;
-	int i, n = scandir(distdir, &namelist, 0, numsort);
+    long nextNum;
+    struct dirent **namelist;
+    int i, n = scandir(distdir, &namelist, 0, numsort);
 
-	if(n <= 0) 
-		nextNum = 0;
-	else {
-		for(i = 0; i < n; i++) {
-			if(DT_REG == namelist[i]->d_type) {
-				char *ptr, *fname = namelist[i]->d_name;	
-				nextNum = strtol(fname, &ptr, 10);
-				nextNum++;
-			}
-		}
-	}
-	
-	return nextNum;
+    if(n <= 0) 
+        nextNum = 0;
+    else {
+        for(i = 0; i < n; i++) {
+            if(DT_REG == namelist[i]->d_type) {
+                char *ptr, *fname = namelist[i]->d_name;    
+                nextNum = strtol(fname, &ptr, 10);
+                nextNum++;
+            }
+        }
+    }
+    
+    return nextNum;
 }
 
 static void
 create_lq(whisky *lq) 
 {
-	FILE *f;
-	char *fname = NULL, 
+    FILE *f;
+    char *fname = NULL, 
          *distdir = get_dist_path(lq->distillery, strlen(lq->distillery)); 
-	long next_num = next_entry_num(distdir);
-	size_t br_len = strlen("/"); 
+    long next_num = next_entry_num(distdir);
+    size_t br_len = strlen("/"); 
 
-	make_dir(distdir);
-	const int n = snprintf(NULL, 0, "%ld", next_num);
-	assert(n > 0);
-	char buf[n+1];
-	int c = snprintf(buf, n+1, "%ld", next_num);
-	assert(buf[n] == '\0');
-	assert(c == n);
+    make_dir(distdir);
+    const int n = snprintf(NULL, 0, "%ld", next_num);
+    assert(n > 0);
+    char buf[n+1];
+    int c = snprintf(buf, n+1, "%ld", next_num);
+    assert(buf[n] == '\0');
+    assert(c == n);
 
     size_t offset = NULL;
-	fname = malloc(strlen(distdir) + br_len + strlen(buf) + NULL_TERM_LEN);
-	memcpy(fname, distdir, strlen(distdir));
-	memcpy(fname + (offset += strlen(distdir)), "/", br_len);
-	memcpy(fname + (offset += br_len), buf, strlen(buf)); 
+    fname = malloc(strlen(distdir) + br_len + strlen(buf) + NULL_TERM_LEN);
+    memcpy(fname, distdir, strlen(distdir));
+    memcpy(fname + (offset += strlen(distdir)), "/", br_len);
+    memcpy(fname + (offset += br_len), buf, strlen(buf)); 
     memcpy(fname + (offset += 1), "\0", 1);
 
-	f = fopen(fname, "w");
-	if(NULL == f) {
-		printf("Error opening file %s\n", fname);
-		exit(1);
-	}
+    f = fopen(fname, "w");
+    if(NULL == f) {
+        printf("Error opening file %s\n", fname);
+        exit(1);
+    }
 
-	fprintf(f, "%s\n", lq->distillery);
-	fprintf(f, "%d\n", lq->age); 
-	fprintf(f, "%f\n", lq->rating);
+    fprintf(f, "%s\n", lq->distillery);
+    fprintf(f, "%d\n", lq->age); 
+    fprintf(f, "%f\n", lq->rating);
 
-	free(fname);
-	free(distdir);
+    free(fname);
+    free(distdir);
 }
 
 static void
 new_lq_from_interact(void) 
 {
-	whisky lq;
+    whisky lq;
 
-	printf("Distillery: ");
-	scanf("%s", lq.distillery); 
+    printf("Distillery: ");
+    scanf("%s", lq.distillery); 
 
-	printf("Age: ");
-	scanf("%d", &lq.age);
+    printf("Age: ");
+    scanf("%d", &lq.age);
 
-	printf("Rating: ");
-	scanf("%lf", &lq.rating);
+    printf("Rating: ");
+    scanf("%lf", &lq.rating);
 
-	create_lq(&lq);
+    create_lq(&lq);
 }
 
 static void
@@ -198,30 +198,30 @@ new_lq_from_stdin(void)
 static void
 init(void)
 {
-	char *workdir = get_workdir();	
-	make_dir(workdir);
-	free(workdir);
+    char *workdir = get_workdir();  
+    make_dir(workdir);
+    free(workdir);
 }
 
 int
 main(int argc, char **argv) 
 {
-	init();
+    init();
 
-	int c;
-	while(-1 != (c = getopt(argc, argv, "np"))) {
-		switch(c) {
-			case 'n':
-				new_lq_from_interact();
-				break;
+    int c;
+    while(-1 != (c = getopt(argc, argv, "np"))) {
+        switch(c) {
+            case 'n':
+                new_lq_from_interact();
+                break;
             case 'p':
                 print_distilleries();
                 break;
-			default:
-				new_lq_from_stdin();
-				break;
-		}
-	}
-	
-	return 0;
+            default:
+                new_lq_from_stdin();
+                break;
+        }
+    }
+    
+    return 0;
 }
