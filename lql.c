@@ -103,11 +103,13 @@ get_distillery_path(char *dist_name, size_t dist_len)
 	size_t distdir_len = strlen(workdir) + br_len  + dist_len;
 	char *dest = malloc(distdir_len + NULL_TERM_LEN);
 
+    size_t offset = NULL;
     memcpy(dest, workdir, strlen(workdir));
-    memcpy(dest + strlen(workdir), "/", strlen("/"));
-    memcpy(dest + strlen(workdir) + strlen("/"), dist_name, dist_len);
-    memcpy(dest + strlen(workdir) + strlen("/") + dist_len, "\0", NULL_TERM_LEN);
+    memcpy(dest + (offset += strlen(workdir)), "/", strlen("/"));
+    memcpy(dest + (offset += strlen("/")), dist_name, dist_len);
+    memcpy(dest + (offset += dist_len), "\0", NULL_TERM_LEN);
 
+    free(workdir);
     return dest;
 }
 
@@ -142,7 +144,7 @@ create_lq(whisky *lq)
 	size_t br_len = strlen("/"); 
 
 	char *workdir = get_workdir();
-	size_t distdir_len = sizeof(workdir) + br_len  + sizeof(lq->distillery);
+	size_t offset = NULL, distdir_len = sizeof(workdir) + br_len  + sizeof(lq->distillery);
 	char *distdir = malloc(distdir_len + NULL_TERM_LEN);
 
 	strcat(distdir, workdir);
@@ -161,8 +163,8 @@ create_lq(whisky *lq)
 
 	fname = malloc(strlen(distdir) + br_len + strlen(buf) + NULL_TERM_LEN);
 	memcpy(fname, distdir, strlen(distdir));
-	memcpy(fname + strlen(distdir), "/", br_len);
-	memcpy(fname + strlen(distdir) + br_len, buf, strlen(buf) + NULL_TERM_LEN); 
+	memcpy(fname + (offset += strlen(distdir)), "/", br_len);
+	memcpy(fname + (offset += br_len), buf, strlen(buf) + NULL_TERM_LEN); 
 
 	f = fopen(fname, "w");
 	if(NULL == f) {
