@@ -10,12 +10,15 @@
 #include <unistd.h>
 #include <dirent.h>
 
+#include "config.def.h"
+
 #define MAX_RATING_LENGTH 3 
 #define MAX_AGE_LENGTH 2
 #define WORKDIR "/.lql"
 #define NULL_TERM_LEN 1
 
 static char* get_workdir(void);
+static char* get_distillery_path(char*, size_t);
 
 typedef struct {
 	char distillery[CHAR_MAX];
@@ -47,16 +50,29 @@ numsort(const struct dirent **file1, const struct dirent **file2)
 static void
 print_distilleries(void)
 {
+
     char* workdir = get_workdir(); 
-    struct dirent **namelist;
-    int i, offset = 2, n = scandir(workdir, &namelist, 0, alphasort);
+    struct dirent **dirlist, *filelist;
+    int i, offset = 2, n = scandir(workdir, &dirlist, 0, alphasort);
+
     if(n <= 0)
         printf("No distilleries found in %s\n", workdir);
     else {
         for(i = offset; i < n; i++) {
-            if(DT_DIR == namelist[i]->d_type) {
-                char *dirname = namelist[i]->d_name;
-                printf("[%d] %s\n", i - 1, dirname);
+            if(DT_DIR == dirlist[i]->d_type) {
+                char *dirname = dirlist[i]->d_name;
+                char *distillery_path = get_distillery_path(dirname, strlen(dirname));
+                DIR *dir = opendir(distillery_path);
+                int reviews = 0;
+
+                while((filelist = readdir(dir)) != NULL) {
+                    if(DT_REG == filelist->d_type) {
+                        reviews++;
+                    }
+                }
+
+                printf("[%d] %s (%d)\n", i - 1, dirname, reviews);
+                free(distillery_path);
             }
         }
     }
@@ -64,9 +80,6 @@ print_distilleries(void)
     free(workdir);
 }
 
-/*
- * Make this void and do not return a malloc'd value
- */
 static char* 
 get_workdir()
 {
@@ -74,11 +87,28 @@ get_workdir()
 	const char *homedir = pw->pw_dir;
 	size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
 	char *workdir = malloc(workdir_len + NULL_TERM_LEN);
-	strcat(workdir, homedir);
-	strcat(workdir, WORKDIR);
-	strcat(workdir, "\0");
+	memcpy(workdir, homedir, strlen(homedir));
+	memcpy(workdir + strlen(homedir), WORKDIR, strlen(WORKDIR));
+	memcpy(workdir + strlen(homedir) + strlen(WORKDIR), "\0", 1);
 
 	return workdir;
+}
+
+static char*
+get_distillery_path(char *dist_name, size_t dist_len) 
+{
+	size_t br_len = strlen("/"); 
+
+	char *workdir = get_workdir();
+	size_t distdir_len = strlen(workdir) + br_len  + dist_len;
+	char *dest = malloc(distdir_len + NULL_TERM_LEN);
+
+    memcpy(dest, workdir, strlen(workdir));
+    memcpy(dest + strlen(workdir), "/", strlen("/"));
+    memcpy(dest + strlen(workdir) + strlen("/"), dist_name, dist_len);
+    memcpy(dest + strlen(workdir) + strlen("/") + dist_len, "\0", NULL_TERM_LEN);
+
+    return dest;
 }
 
 static long
@@ -155,7 +185,7 @@ new_lq_from_interact(void)
 	whisky lq;
 
 	printf("Distillery: ");
-	scanf("%s", lq.distillery); // Replace spaces with underscore
+	scanf("%s", lq.distillery); 
 
 	printf("Age: ");
 	scanf("%d", &lq.age);
@@ -192,6 +222,7 @@ main(int argc, char **argv)
 				break;
             case 'p':
                 print_distilleries();
+                break;
 			default:
 				new_lq_from_stdin();
 				break;
