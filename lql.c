@@ -18,7 +18,7 @@
 #define NULL_TERM_LEN 1
 
 static char* get_workdir(void);
-static char* get_distillery_path(char*, size_t);
+static char* get_dist_path(char*, size_t);
 
 typedef struct {
 	char distillery[CHAR_MAX];
@@ -61,7 +61,7 @@ print_distilleries(void)
         for(i = offset; i < n; i++) {
             if(DT_DIR == dirlist[i]->d_type) {
                 char *dirname = dirlist[i]->d_name;
-                char *distillery_path = get_distillery_path(dirname, strlen(dirname));
+                char *distillery_path = get_dist_path(dirname, strlen(dirname));
                 DIR *dir = opendir(distillery_path);
                 int reviews = 0;
 
@@ -95,7 +95,7 @@ get_workdir()
 }
 
 static char*
-get_distillery_path(char *dist_name, size_t dist_len) 
+get_dist_path(char *dist_name, size_t dist_len) 
 {
 	size_t br_len = strlen("/"); 
 
@@ -139,21 +139,12 @@ static void
 create_lq(whisky *lq) 
 {
 	FILE *f;
-	long next_num; 
-	char *fname = NULL; 
+	char *fname = NULL, 
+         *distdir = get_dist_path(lq->distillery, strlen(lq->distillery)); 
+	long next_num = next_entry_num(distdir);
 	size_t br_len = strlen("/"); 
 
-	char *workdir = get_workdir();
-	size_t offset = NULL, distdir_len = sizeof(workdir) + br_len  + sizeof(lq->distillery);
-	char *distdir = malloc(distdir_len + NULL_TERM_LEN);
-
-	strcat(distdir, workdir);
-	strcat(distdir, "/");
-	strcat(distdir, lq->distillery);
-
 	make_dir(distdir);
-	next_num = next_entry_num(distdir);
-
 	const int n = snprintf(NULL, 0, "%ld", next_num);
 	assert(n > 0);
 	char buf[n+1];
@@ -161,10 +152,12 @@ create_lq(whisky *lq)
 	assert(buf[n] == '\0');
 	assert(c == n);
 
+    size_t offset = NULL;
 	fname = malloc(strlen(distdir) + br_len + strlen(buf) + NULL_TERM_LEN);
 	memcpy(fname, distdir, strlen(distdir));
 	memcpy(fname + (offset += strlen(distdir)), "/", br_len);
-	memcpy(fname + (offset += br_len), buf, strlen(buf) + NULL_TERM_LEN); 
+	memcpy(fname + (offset += br_len), buf, strlen(buf)); 
+    memcpy(fname + (offset += 1), "\0", 1);
 
 	f = fopen(fname, "w");
 	if(NULL == f) {
@@ -177,7 +170,6 @@ create_lq(whisky *lq)
 	fprintf(f, "%f\n", lq->rating);
 
 	free(fname);
-	free(workdir); // Remove this once workdir is modified in own function
 	free(distdir);
 }
 
@@ -231,6 +223,5 @@ main(int argc, char **argv)
 		}
 	}
 	
-
 	return 0;
 }
