@@ -36,6 +36,12 @@ make_dir(char *dirname)
     return 0;
 }
 
+static void 
+clear_screen() {
+    const char* ansi = "\e[1;1H\e[2J\n";
+    write(STDOUT_FILENO, ansi, 12);
+}
+
 static int 
 numsort(const struct dirent **file1, const struct dirent **file2)
 {
@@ -50,7 +56,7 @@ numsort(const struct dirent **file1, const struct dirent **file2)
 static void
 print_distilleries(void)
 {
-
+    clear_screen();
     char* workdir = get_workdir(); 
     struct dirent **dirlist, *filelist;
     int i, offset = 2, n = scandir(workdir, &dirlist, 0, alphasort);
@@ -58,6 +64,7 @@ print_distilleries(void)
     if(n <= 0)
         printf("No distilleries found in %s\n", workdir);
     else {
+        printf("%3s %12s %12s\n", "No", "Distillery", "Reviews");
         for(i = offset; i < n; i++) {
             if(DT_DIR == dirlist[i]->d_type) {
                 char *dirname = dirlist[i]->d_name;
@@ -71,7 +78,7 @@ print_distilleries(void)
                     }
                 }
 
-                printf("[%d] %s (%d)\n", i - 1, dirname, reviews);
+                printf("\033[32m[\033[39m %d \033[32m]\033[39m %-15s (%d)\n", i - 1, dirname, reviews);
                 free(distillery_path);
             }
         }
