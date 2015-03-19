@@ -15,6 +15,8 @@
 #define WORKDIR "/.lql"
 #define NULL_TERM_LEN 1
 
+static char* get_workdir(void);
+
 typedef struct {
 	char distillery[CHAR_MAX];
 	signed int age;
@@ -40,6 +42,26 @@ numsort(const struct dirent **file1, const struct dirent **file2)
 	long num_a = strtol(a, &ptr, 10);
 	long num_b = strtol(b, &ptr, 10);
 	return num_a > num_b ? 1 : (num_a == num_b ? 0 : -1);
+}
+
+static void
+print_distilleries(void)
+{
+    char* workdir = get_workdir(); 
+    struct dirent **namelist;
+    int i, offset = 2, n = scandir(workdir, &namelist, 0, alphasort);
+    if(n <= 0)
+        printf("No distilleries found in %s\n", workdir);
+    else {
+        for(i = offset; i < n; i++) {
+            if(DT_DIR == namelist[i]->d_type) {
+                char *dirname = namelist[i]->d_name;
+                printf("[%d] %s\n", i - 1, dirname);
+            }
+        }
+    }
+
+    free(workdir);
 }
 
 /*
@@ -128,7 +150,7 @@ create_lq(whisky *lq)
 }
 
 static void
-new_lq_from_interact() 
+new_lq_from_interact(void) 
 {
 	whisky lq;
 
@@ -145,12 +167,12 @@ new_lq_from_interact()
 }
 
 static void
-new_lq_from_stdin()
+new_lq_from_stdin(void)
 {
 }
 
 static void
-init()
+init(void)
 {
 	char *workdir = get_workdir();	
 	make_dir(workdir);
@@ -163,11 +185,13 @@ main(int argc, char **argv)
 	init();
 
 	int c;
-	while(-1 != (c = getopt(argc, argv, "n"))) {
+	while(-1 != (c = getopt(argc, argv, "np"))) {
 		switch(c) {
 			case 'n':
 				new_lq_from_interact();
 				break;
+            case 'p':
+                print_distilleries();
 			default:
 				new_lq_from_stdin();
 				break;
