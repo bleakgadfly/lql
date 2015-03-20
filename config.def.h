@@ -13,3 +13,10 @@
  *
  **/
 #define ZERO_IS_NO_RATING 1
+
+/*
+ *
+ * Clear screen on print distilleries and reviews?
+ *
+ */
+#define CLEAR_SCREEN 0

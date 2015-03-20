@@ -1,10 +1,10 @@
 #include <stdlib.h>
+#include <stdio.h>
 #include <assert.h>
 #include <ctype.h>
 #include <limits.h>
 #include <pwd.h>
 #include <string.h>
-#include <stdio.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <unistd.h>
@@ -17,14 +17,28 @@
 #define WORKDIR "/.lql"
 #define NULL_TERM_LEN 1
 
-static char* get_workdir(void);
-static char* get_dist_path(char*, size_t);
+typedef enum { false, true } bool;
 
 typedef struct {
     char distillery[CHAR_MAX];
+    char bottler[CHAR_MAX];
     signed int age;
     double rating;
+    bool is_ib;
 } whisky;
+
+static void clear_screen(void);
+static void create_lq(whisky*);
+static char* get_workdir(void);
+static char* get_dist_path(char*, size_t);
+static void init(void);
+static int make_dir(char*);
+static void new_lq_from_interact(void);
+static void new_lq_from_stdin(void);
+static long next_entry_num(const char*);
+static int numsort(const struct dirent**, const struct dirent**);
+static void print_distilleries(void);
+static void print_reviews(int);
 
 static int 
 make_dir(char *dirname) 
@@ -37,9 +51,12 @@ make_dir(char *dirname)
 }
 
 static void 
-clear_screen() {
-    const char* ansi = "\e[1;1H\e[2J\n";
-    write(STDOUT_FILENO, ansi, 12);
+clear_screen(void) 
+{
+    if(CLEAR_SCREEN) {
+        const char* ansi = "\e[1;1H\e[2J\n";
+        write(STDOUT_FILENO, ansi, 12);
+    }
 }
 
 static int 
@@ -87,8 +104,53 @@ print_distilleries(void)
     free(workdir);
 }
 
+static void
+print_reviews(int distilleryId)
+{
+    char *workdir = get_workdir();
+    struct dirent **dirlist, *in_file;
+    scandir(workdir, &dirlist, 0, alphasort);
+
+    char *distname = dirlist[distilleryId + 1]->d_name,
+         *distpath = get_dist_path(distname, strlen(distname)),
+         buffer[CHAR_MAX];
+    DIR *dir = opendir(distpath);
+    FILE *review_file;
+    int line = 1;
+
+    chdir(distpath);
+    printf("Reviews for %s\n", distname);
+    while((in_file = readdir(dir)))
+    {
+        if(!strcmp(in_file->d_name, "."))
+            continue;
+        if(!strcmp(in_file->d_name, ".."))
+            continue;
+
+        review_file = fopen(in_file->d_name, "rb");
+        while(fgets(buffer, CHAR_MAX, review_file) != NULL)
+        {
+            if(!strcmp(buffer, distname))
+                continue;
+            
+            if(2 == line)
+                printf("| %d YO, ", atoi(buffer));
+            if(3 == line) {
+                char *ptr;    
+                long rating = strtol(buffer, &ptr, 10);
+                printf("rated %ld\n", rating);
+            }
+            line++;
+        }
+
+        fclose(review_file);
+    }
+
+    free(workdir);
+}
+
 static char* 
-get_workdir()
+get_workdir(void)
 {
     struct passwd *pw = getpwuid(getuid());
     const char *homedir = pw->pw_dir;
@@ -215,14 +277,18 @@ main(int argc, char **argv)
 {
     init();
 
-    int c;
-    while(-1 != (c = getopt(argc, argv, "np"))) {
+    int c, id;
+    while(-1 != (c = getopt(argc, argv, "npd:"))) {
         switch(c) {
             case 'n':
                 new_lq_from_interact();
                 break;
             case 'p':
                 print_distilleries();
+                break;
+            case 'd':
+                id = optarg[0] - '0';
+                print_reviews(id);
                 break;
             default:
                 new_lq_from_stdin();
