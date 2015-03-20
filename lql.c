@@ -14,12 +14,12 @@
 
 #define WORKDIR "/.lql"
 #define NULL_TERM_LEN 1
-#define DISTILLERY_LINE = 1
-#define AGE_LINE=2
-#define RATING_LINE=3
-#define VINTAGE_LINE=4
-#define BOTTLED_LINE=5
-#define BOTTLER_LINE=6
+#define DISTILLERY_LINE 1
+#define AGE_LINE 2
+#define RATING_LINE 3
+#define VINTAGE_LINE 4
+#define BOTTLED_LINE 5
+#define BOTTLER_LINE 6
 
 typedef enum { false, true } bool;
 
@@ -38,7 +38,7 @@ static char* get_workdir(void);
 static char* get_dist_path(char*, size_t);
 static int numsort(const struct dirent**, const struct dirent**);
 static int make_dir(char*);
-static long next_entry_num(const char*);
+static char* next_entry(const char*);
 static void create_lq(whisky*);
 static void new_lq_from_interact(void);
 static void new_lq_from_stdin(void);
@@ -108,26 +108,33 @@ get_dist_path(char *dist_name, size_t dist_len)
     return dest;
 }
 
-static long
-next_entry_num(const char *distdir)
+static char*
+next_entry(const char *distdir)
 {
-    long nextNum;
+    long next_num;
     struct dirent **namelist;
     int i, n = scandir(distdir, &namelist, 0, numsort);
 
     if(n <= 0) 
-        nextNum = 0;
+        next_num = 0;
     else {
         for(i = 0; i < n; i++) {
             if(DT_REG == namelist[i]->d_type) {
                 char *ptr, *fname = namelist[i]->d_name;    
-                nextNum = strtol(fname, &ptr, 10);
-                nextNum++;
+                next_num = strtol(fname, &ptr, 10);
+                next_num++;
             }
         }
     }
+
+    const int sz = snprintf(NULL, 0, "%ld", next_num);
+    assert(sz > 0);
+    char *buf = malloc(sizeof(sz+1));
+    int c = snprintf(buf, sz+1, "%ld", next_num);
+    assert(buf[sz] == '\0');
+    assert(c == sz);
     
-    return nextNum;
+    return buf;
 }
 
 static void
@@ -218,23 +225,16 @@ create_lq(whisky *lq)
 {
     FILE *f;
     char *fname = NULL, 
-         *distdir = get_dist_path(lq->distillery, strlen(lq->distillery)); 
-    long next_num = next_entry_num(distdir);
+         *distdir = get_dist_path(lq->distillery, strlen(lq->distillery)), 
+         *next_lq = next_entry(distdir);
     size_t br_len = strlen("/"); 
+    size_t offset = NULL;
 
     make_dir(distdir);
-    const int n = snprintf(NULL, 0, "%ld", next_num);
-    assert(n > 0);
-    char buf[n+1];
-    int c = snprintf(buf, n+1, "%ld", next_num);
-    assert(buf[n] == '\0');
-    assert(c == n);
-
-    size_t offset = NULL;
-    fname = malloc(strlen(distdir) + br_len + strlen(buf) + NULL_TERM_LEN);
+    fname = malloc(strlen(distdir) + br_len + strlen(next_lq) + NULL_TERM_LEN);
     memcpy(fname, distdir, strlen(distdir));
     memcpy(fname + (offset += strlen(distdir)), "/", br_len);
-    memcpy(fname + (offset += br_len), buf, strlen(buf)); 
+    memcpy(fname + (offset += br_len), next_lq, strlen(next_lq)); 
     memcpy(fname + (offset += 1), "\0", 1);
 
     f = fopen(fname, "w");
@@ -248,6 +248,7 @@ create_lq(whisky *lq)
     fprintf(f, "%f\n", lq->rating);
 
     free(fname);
+    free(next_lq);
     free(distdir);
 }
 
