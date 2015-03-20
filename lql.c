@@ -12,16 +12,21 @@
 
 #include "config.def.h"
 
-#define MAX_RATING_LENGTH 3 
-#define MAX_AGE_LENGTH 2
 #define WORKDIR "/.lql"
 #define NULL_TERM_LEN 1
+#define DISTILLERY_LINE = 1
+#define AGE_LINE=2
+#define RATING_LINE=3
+#define VINTAGE_LINE=4
+#define BOTTLED_LINE=5
+#define BOTTLER_LINE=6
 
 typedef enum { false, true } bool;
 
 typedef struct {
     char distillery[CHAR_MAX];
     char bottler[CHAR_MAX];
+    char name[CHAR_MAX];
     signed int age;
     signed int vintage;
     signed int bottled;
@@ -29,17 +34,17 @@ typedef struct {
 } whisky;
 
 static void clear_screen(void);
-static void create_lq(whisky*);
 static char* get_workdir(void);
 static char* get_dist_path(char*, size_t);
-static void init(void);
+static int numsort(const struct dirent**, const struct dirent**);
 static int make_dir(char*);
+static long next_entry_num(const char*);
+static void create_lq(whisky*);
 static void new_lq_from_interact(void);
 static void new_lq_from_stdin(void);
-static long next_entry_num(const char*);
-static int numsort(const struct dirent**, const struct dirent**);
 static void print_distilleries(void);
 static void print_reviews(int);
+static void init(void);
 
 static int 
 make_dir(char *dirname) 
@@ -69,6 +74,60 @@ numsort(const struct dirent **file1, const struct dirent **file2)
     long num_a = strtol(a, &ptr, 10);
     long num_b = strtol(b, &ptr, 10);
     return num_a > num_b ? 1 : (num_a == num_b ? 0 : -1);
+}
+
+static char* 
+get_workdir(void)
+{
+    struct passwd *pw = getpwuid(getuid());
+    const char *homedir = pw->pw_dir;
+    size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
+    char *workdir = malloc(workdir_len + NULL_TERM_LEN);
+    memcpy(workdir, homedir, strlen(homedir));
+    memcpy(workdir + strlen(homedir), WORKDIR, strlen(WORKDIR));
+    memcpy(workdir + strlen(homedir) + strlen(WORKDIR), "\0", 1);
+
+    return workdir;
+}
+
+static char*
+get_dist_path(char *dist_name, size_t dist_len) 
+{
+    size_t br_len = strlen("/"); 
+    char *workdir = get_workdir();
+    size_t distdir_len = strlen(workdir) + br_len  + dist_len;
+    char *dest = malloc(distdir_len + NULL_TERM_LEN);
+
+    size_t offset = NULL;
+    memcpy(dest, workdir, strlen(workdir));
+    memcpy(dest + (offset += strlen(workdir)), "/", strlen("/"));
+    memcpy(dest + (offset += strlen("/")), dist_name, dist_len);
+    memcpy(dest + (offset += dist_len), "\0", NULL_TERM_LEN);
+
+    free(workdir);
+    return dest;
+}
+
+static long
+next_entry_num(const char *distdir)
+{
+    long nextNum;
+    struct dirent **namelist;
+    int i, n = scandir(distdir, &namelist, 0, numsort);
+
+    if(n <= 0) 
+        nextNum = 0;
+    else {
+        for(i = 0; i < n; i++) {
+            if(DT_REG == namelist[i]->d_type) {
+                char *ptr, *fname = namelist[i]->d_name;    
+                nextNum = strtol(fname, &ptr, 10);
+                nextNum++;
+            }
+        }
+    }
+    
+    return nextNum;
 }
 
 static void
@@ -121,8 +180,7 @@ print_reviews(int distilleryId)
 
     chdir(distpath);
     printf("Reviews for %s\n", distname);
-    while((in_file = readdir(dir)))
-    {
+    while((in_file = readdir(dir))) {
         if(!strcmp(in_file->d_name, "."))
             continue;
         if(!strcmp(in_file->d_name, ".."))
@@ -149,66 +207,10 @@ print_reviews(int distilleryId)
         }
 
         line = 1;
-
         fclose(review_file);
     }
 
     free(workdir);
-}
-
-static char* 
-get_workdir(void)
-{
-    struct passwd *pw = getpwuid(getuid());
-    const char *homedir = pw->pw_dir;
-    size_t workdir_len = strlen(homedir) + strlen(WORKDIR);
-    char *workdir = malloc(workdir_len + NULL_TERM_LEN);
-    memcpy(workdir, homedir, strlen(homedir));
-    memcpy(workdir + strlen(homedir), WORKDIR, strlen(WORKDIR));
-    memcpy(workdir + strlen(homedir) + strlen(WORKDIR), "\0", 1);
-
-    return workdir;
-}
-
-static char*
-get_dist_path(char *dist_name, size_t dist_len) 
-{
-    size_t br_len = strlen("/"); 
-
-    char *workdir = get_workdir();
-    size_t distdir_len = strlen(workdir) + br_len  + dist_len;
-    char *dest = malloc(distdir_len + NULL_TERM_LEN);
-
-    size_t offset = NULL;
-    memcpy(dest, workdir, strlen(workdir));
-    memcpy(dest + (offset += strlen(workdir)), "/", strlen("/"));
-    memcpy(dest + (offset += strlen("/")), dist_name, dist_len);
-    memcpy(dest + (offset += dist_len), "\0", NULL_TERM_LEN);
-
-    free(workdir);
-    return dest;
-}
-
-static long
-next_entry_num(const char *distdir)
-{
-    long nextNum;
-    struct dirent **namelist;
-    int i, n = scandir(distdir, &namelist, 0, numsort);
-
-    if(n <= 0) 
-        nextNum = 0;
-    else {
-        for(i = 0; i < n; i++) {
-            if(DT_REG == namelist[i]->d_type) {
-                char *ptr, *fname = namelist[i]->d_name;    
-                nextNum = strtol(fname, &ptr, 10);
-                nextNum++;
-            }
-        }
-    }
-    
-    return nextNum;
 }
 
 static void
@@ -256,13 +258,16 @@ new_lq_from_interact(void)
 
     printf("Distillery: ");
     scanf("%s", lq.distillery); 
-
     printf("Age: ");
     scanf("%d", &lq.age);
-
+    printf("Name: ");
+    scanf("%s", lq.name);
     printf("Rating: ");
     scanf("%lf", &lq.rating);
-
+    printf("Vintage: ");
+    scanf("%d", &lq.vintage);
+    printf("Bottled: ");
+    scanf("%d", &lq.bottled);
     printf("Bottler [%s]: ", lq.distillery);
     scanf("%s", lq.bottler);
 
@@ -272,6 +277,30 @@ new_lq_from_interact(void)
 static void
 new_lq_from_stdin(void)
 {
+    whisky lq;
+    char buffer[1024];
+    int line = 0;
+
+    while(NULL != fgets(buffer, 1024, stdin)) {
+       line++;
+
+       if(!strcmp(".", buffer))
+           break;
+       if(1 == line)
+           strcpy(lq.distillery, buffer);
+       if(2 == line)
+           lq.age = buffer[0] - '0';
+       if(3 == line)
+           lq.rating = atof(buffer);
+       if(4 == line)
+           lq.vintage = buffer[0] - '0';
+       if(5 == line)
+           lq.bottled = buffer[0] - '0';
+       if(6 == line)
+           strcpy(lq.bottler, buffer);
+    }
+
+    printf("Entered %s", lq.distillery);
 }
 
 static void
@@ -282,29 +311,43 @@ init(void)
     free(workdir);
 }
 
+static void
+print_help() 
+{
+    printf("usage: lql [-p] [-n] [-d <distillery number>]\n\n");
+    printf("Options:\n");
+    printf("-p\t\t\tPrints reviewed distilleries\n");
+    printf("-n\t\t\tCreates a new review\n");
+    printf("-d <distillery number>\tPrints reviews for distillery with number from -p\n");
+}
+
 int
 main(int argc, char **argv) 
 {
     init();
 
     int c, id;
-    while(-1 != (c = getopt(argc, argv, "npd:"))) {
+    while(-1 != (c = getopt(argc, argv, "npsd:"))) {
         switch(c) {
             case 'n':
                 new_lq_from_interact();
-                break;
+                return 0;
             case 'p':
                 print_distilleries();
-                break;
+                return 0;
             case 'd':
                 id = optarg[0] - '0';
                 print_reviews(id);
-                break;
-            default:
+                return 0;
+            case 's':
                 new_lq_from_stdin();
-                break;
+                return 0;
+            default:
+                print_help();
+                return -1;
         }
     }
-    
+
+    print_help();
     return 0;
 }
