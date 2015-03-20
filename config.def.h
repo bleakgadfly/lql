@@ -19,4 +19,4 @@
  * Clear screen on print distilleries and reviews?
  *
  */
-#define CLEAR_SCREEN 0
+#define CLEAR_SCREEN 1

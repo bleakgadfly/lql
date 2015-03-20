@@ -23,8 +23,9 @@ typedef struct {
     char distillery[CHAR_MAX];
     char bottler[CHAR_MAX];
     signed int age;
+    signed int vintage;
+    signed int bottled;
     double rating;
-    bool is_ib;
 } whisky;
 
 static void clear_screen(void);
@@ -134,14 +135,20 @@ print_reviews(int distilleryId)
                 continue;
             
             if(2 == line)
-                printf("| %d YO, ", atoi(buffer));
+                printf("\033[32m|\033[39m %d Y.O, ", atoi(buffer));
             if(3 == line) {
-                char *ptr;    
-                long rating = strtol(buffer, &ptr, 10);
-                printf("rated %ld\n", rating);
+                if(MAX_RATING > 10)
+                    printf("rated %.0f\n", atof(buffer));
+                else
+                    printf("rated %.1f\n", atof(buffer));
+            }
+            if(4 == line) {
+                printf("bottled by %s\n", buffer);
             }
             line++;
         }
+
+        line = 1;
 
         fclose(review_file);
     }
@@ -255,6 +262,9 @@ new_lq_from_interact(void)
 
     printf("Rating: ");
     scanf("%lf", &lq.rating);
+
+    printf("Bottler [%s]: ", lq.distillery);
+    scanf("%s", lq.bottler);
 
     create_lq(&lq);
 }
